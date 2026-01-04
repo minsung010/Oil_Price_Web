@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>유가 예측 결과</title>
+<style>
+body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; padding: 20px; text-align: center; }
+h1 { color: #2e7d32; }
+table { border-collapse: collapse; width: 70%; margin: 20px auto; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+th { background: #2e7d32; color: white; }
+a { color: #2e7d32; text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>📊 {{ station_id }} 주유소 유가 예측 결과</h1>
+<h3>📅 최근 10일 실제 가격</h3>
+{{ tables1 | safe }}
+
+<h3>🔮 향후 7일 예측 가격</h3>
+{{ tables2 | safe }}
+
+<a href="/">← 다른 주유소 선택</a>
+</body>
+</html>

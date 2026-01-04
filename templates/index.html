@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>GasPriceFinder - 주유소 최저가 검색 & 가격예측</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script
+        src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f4de4178bee8f55fed343e03f6d0d803&libraries=services"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #fff;
+            --bg-tertiary: #f8f9fa;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-muted: #888;
+            --border-color: #eee;
+            --border-color-dark: #ddd;
+            --accent-color: #e74c3c;
+            --accent-hover: #c0392b;
+            --info-color: #3498db;
+            --shadow: rgba(0, 0, 0, 0.06);
+            --shadow-strong: rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f1626;
+            --text-primary: #e8e8e8;
+            --text-secondary: #b0b0b0;
+            --text-muted: #808080;
+            --border-color: #2a2a4a;
+            --border-color-dark: #3a3a5a;
+            --accent-color: #e74c3c;
+            --accent-hover: #ff6b5b;
+            --info-color: #5dade2;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --shadow-strong: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: var(--bg-primary);
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+            color: var(--text-primary);
+        }
+
+        /* ========== 헤더 ========== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            height: 60px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .header .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .header .logo span:first-child {
+            color: var(--accent-color);
+            font-size: 26px;
+        }
+
+        .header .logo .highlight {
+            color: var(--accent-color);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dark-mode-toggle {
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dark-mode-toggle:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* ========== 메인 레이아웃 ========== */
+        .main-container {
+            display: flex;
+            margin-top: 60px;
+            height: calc(100vh - 60px);
+        }
+
+        /* ========== 사이드바 ========== */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .sidebar-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .sidebar-title .icon {
+            font-size: 20px;
+        }
+
+        /* 폼 스타일 */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-select {
+            flex: 1;
+            min-width: 80px;
+            padding: 10px 30px 10px 14px;
+            border: 1px solid var(--border-color-dark);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn-search {
+            padding: 10px 24px;
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-search:hover {
+            background: var(--accent-hover);
+        }
+
+        /* 상표 체크박스 */
+        .brand-section {
+            margin-bottom: 16px;
+        }
+
+        .brand-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .brand-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .brand-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .brand-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent-color);
+        }
+
+        .brand-item.checked::before {
+            content: "✓";
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        /* 평균가격 표시 */
+        .avg-prices {
+            display: flex;
+            gap: 24px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            transition: background 0.3s;
+        }
+
+        .avg-price-item {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .avg-price-item .label {
+            margin-right: 4px;
+        }
+
+        .avg-price-item .value {
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        /* 검색결과 */
+        .result-count {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .result-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .result-item {
+            padding: 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+        }
+
+        .result-item:hover {
+            border-left-color: var(--accent-color);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .result-item.active {
+            border-left-color: var(--accent-color);
+            background: var(--bg-tertiary);
+        }
+
+        .result-item .name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .result-item .address {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .result-item .prices {
+            display: flex;
+            gap: 16px;
+        }
+
+        .result-item .price {
+            font-size: 13px;
+        }
+
+        .result-item .price .label {
+            color: var(--text-muted);
+        }
+
+        .result-item .price .value {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .result-item .price.diesel .value {
+            color: var(--info-color);
+        }
+
+        /* ========== 지도 영역 ========== */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #map {
+            flex: 1;
+            min-height: 50vh;
+            position: relative;
+        }
+
+        .map-controls {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .map-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color-dark);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .map-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* ========== 차트 영역 ========== */
+        .charts-section {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            height: 320px;
+            transition: background 0.3s;
+        }
+
+        .chart-container {
+            flex: 2;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: background 0.3s;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .chart-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-title .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--info-color);
+            border-radius: 50%;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .legend-item .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-item .dot.actual {
+            background: var(--info-color);
+        }
+
+        .legend-item .dot.predict {
+            background: var(--accent-color);
+        }
+
+        .chart-canvas-wrapper {
+            height: calc(100% - 40px);
+        }
+
+        .pie-chart-container {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px var(--shadow);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+
+        .pie-chart-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .pie-canvas-wrapper {
+            height: calc(100% - 30px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ========== 사이드 패널 (상세정보) ========== */
+        .detail-panel {
+            position: fixed;
+            top: 60px;
+            right: -400px;
+            width: 380px;
+            height: calc(100vh - 60px - 320px);
+            background: var(--bg-secondary);
+            box-shadow: -4px 0 20px var(--shadow-strong);
+            z-index: 1500;
+            overflow-y: auto;
+            transition: right 0.3s ease;
+        }
+
+        .detail-panel.active {
+            right: 0;
+        }
+
+        .detail-panel .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .detail-panel .panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .detail-panel .panel-address {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .detail-panel .panel-close {
+            width: 28px;
+            height: 28px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .detail-panel .panel-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .detail-panel .panel-body {
+            padding: 20px;
+        }
+
+
+
+        .station-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .info-item .icon {
+            font-size: 16px;
+        }
+
+        .info-item .label {
+            color: var(--text-muted);
+        }
+
+        .info-item .value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .info-item .value.yes {
+            color: #27ae60;
+        }
+
+        .info-item .value.no {
+            color: var(--accent-color);
+        }
+
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .price-table th,
+        .price-table td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .price-table th {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+        }
+
+        .price-table td {
+            font-size: 14px;
+        }
+
+        .price-table .fuel-type {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .price-table .price-value {
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        .calc-section {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            transition: background 0.3s;
+        }
+
+        .calc-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .calc-input-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .calc-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color-dark);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .calc-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .calc-btn {
+            padding: 10px 20px;
+            background: var(--info-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .calc-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .calc-results {
+            display: flex;
+            gap: 24px;
+        }
+
+        .calc-result-item {
+            font-size: 13px;
+        }
+
+        .calc-result-item .label {
+            color: var(--text-muted);
+        }
+
+        .calc-result-item .value {
+            font-weight: 600;
+            color: var(--info-color);
+        }
+
+        .calc-result-item.predict .value {
+            color: var(--accent-color);
+        }
+
+        /* ========== 반응형 ========== */
+        @media (max-width: 1200px) {
+            .charts-section {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .pie-chart-container {
+                width: 100%;
+                height: 280px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -320px;
+                top: 60px;
+                height: calc(100vh - 60px);
+                z-index: 900;
+                transition: left 0.3s;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="logo">
+            <img src="/static/img/logo.png" alt="logo" style="height: 36px;">
+            <span>Gas<span class="highlight">Price</span>Finder</span>
+        </div>
+        <div class="header-right">
+            <span class="dark-mode-toggle" id="darkModeToggle" title="다크모드/라이트모드 전환">🌙</span>
+        </div>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
+        <!-- 사이드바 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-title">
+                <span class="icon">⛽</span>
+                주유소 검색
+            </div>
+
+            <form id="searchForm">
+                <div class="form-group">
+                    <div class="form-row">
+                        <div style="flex:1;">
+                            <label class="form-label">시도</label>
+                            <select name="sido" id="sido" class="form-select" required>
+                                <option value="">선택</option>
+                                {% for sido in sido_list %}
+                                <option value="{{ sido.code }}">{{ sido.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label class="form-label">시군구</label>
+                            <select name="sigungu" id="sigungu" class="form-select" required>
+                                <option value="">선택</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">유종</label>
+                    <div class="form-row">
+                        <select name="prodcd" class="form-select">
+                            <option value="B027">휘발유</option>
+                            <option value="D047">경유</option>
+                        </select>
+                        <button type="submit" class="btn-search">검색</button>
+                    </div>
+                </div>
+
+                <div class="brand-section">
+                    <div class="brand-title">상표</div>
+                    <div class="brand-group">
+                        <label class="brand-item"><input type="checkbox" name="brand" value="SKE"> SK에너지</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="GSC"> GS칼텍스</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="HDO"> 현대오일뱅크</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="SOL"> S-OIL</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="RTE"> 자영알뜰</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="RTX"> 고속도로알뜰</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="NHO"> 농협알뜰</label>
+                        <label class="brand-item"><input type="checkbox" name="brand" value="ETC"> 자가상표</label>
+                    </div>
+                </div>
+
+                <div id="avgPrices" class="avg-prices" style="display:none;">
+                    <div class="avg-price-item">
+                        <span class="label">평균 휘발유:</span>
+                        <span class="value" id="avgGasoline">-</span>원
+                    </div>
+                    <div class="avg-price-item">
+                        <span class="label">경유:</span>
+                        <span class="value" id="avgDiesel">-</span>원
+                    </div>
+                </div>
+
+                <div id="totalCount" class="result-count"></div>
+
+                <div class="sort-filter" id="sortFilter" style="display:none;">
+                    <select id="sortSelect" class="form-select" style="font-size:12px; padding:6px 10px;">
+                        <option value="none">정렬 선택</option>
+                        <option value="b027_asc">휘발유 낮은순</option>
+                        <option value="b027_desc">휘발유 높은순</option>
+                        <option value="d047_asc">경유 낮은순</option>
+                        <option value="d047_desc">경유 높은순</option>
+                    </select>
+                </div>
+
+                <div id="searchResults" class="result-list"></div>
+            </form>
+        </aside>
+
+        <!-- 콘텐츠 영역 -->
+        <div class="content-area">
+            <!-- 지도 -->
+            <div id="map">
+                <div class="map-controls">
+                    <button class="map-btn" onclick="map.setLevel(map.getLevel() - 1)">+</button>
+                    <button class="map-btn" onclick="map.setLevel(map.getLevel() + 1)">−</button>
+                    <button class="map-btn" onclick="getCurrentLocation()">⊙</button>
+                </div>
+            </div>
+
+            <!-- 차트 섹션 -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <span class="dot"></span>
+                            가격 변동 추이 및 예측
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="dot actual"></span> 과거 가격</span>
+                            <span class="legend-item"><span class="dot predict"></span> 예측 가격</span>
+                        </div>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="predictChart"></canvas>
+                    </div>
+                </div>
+                <div class="pie-chart-container">
+                    <div class="pie-chart-title">브랜드별 주유소 비율</div>
+                    <div class="pie-canvas-wrapper">
+                        <canvas id="brandPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상세정보 사이드 패널 -->
+    <div class="detail-panel" id="detailPanel">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title" id="panelTitle">주유소명</div>
+                <div class="panel-address" id="panelAddress">주소</div>
+            </div>
+            <button class="panel-close" onclick="closePanel()">×</button>
+        </div>
+        <div class="panel-body">
+            <div class="station-info" id="stationInfo">
+                <!-- 동적으로 채워짐 -->
+            </div>
+
+            <table class="price-table">
+                <thead>
+                    <tr>
+                        <th>유종</th>
+                        <th>가격</th>
+                    </tr>
+                </thead>
+                <tbody id="priceTableBody">
+                    <!-- 동적으로 채워짐 -->
+                </tbody>
+            </table>
+
+            <div class="calc-section">
+                <div class="calc-title">
+                    <span>⛽</span>
+                    주유량 계산
+                </div>
+                <div class="calc-input-row">
+                    <input type="number" class="calc-input" id="amountInput" placeholder="금액" value="10000" step="10000"
+                        min="10000">
+                    <button type="button" class="calc-btn" id="calcFuelBtn">계산</button>
+                </div>
+                <div class="calc-results">
+                    <div class="calc-result-item">
+                        <span class="label">오늘:</span>
+                        <span class="value" id="fuelResultToday">0 L</span>
+                    </div>
+                    <div class="calc-result-item predict">
+                        <span class="label">예측:</span>
+                        <span class="value" id="fuelResultTomorrow">0 L</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var map = new kakao.maps.Map(document.getElementById('map'), {
+            center: new kakao.maps.LatLng({{ center_lat }}, {{ center_lon }}),
+        level: 6
+        });
+        var geocoder = new kakao.maps.services.Geocoder();
+        var bounds = new kakao.maps.LatLngBounds();
+        var markers = {};
+        var currentResults = [];
+        var todayPriceGlobal = null;
+        var tomorrowPredGlobal = null;
+
+        // 다크모드 토글
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        // localStorage에서 다크모드 상태 불러오기
+        if (localStorage.getItem('darkMode') === 'true') {
+            body.classList.add('dark-mode');
+            darkModeToggle.textContent = '☀️';
+        }
+
+        darkModeToggle.addEventListener('click', function () {
+            body.classList.toggle('dark-mode');
+            const isDarkMode = body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            darkModeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+        });
+
+        // 현재 위치 가져오기
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
+                    map.setCenter(new kakao.maps.LatLng(lat, lon));
+                });
+            }
+        }
+
+        // 패널 열기/닫기
+        function openPanel() {
+            document.getElementById('detailPanel').classList.add('active');
+        }
+        function closePanel() {
+            document.getElementById('detailPanel').classList.remove('active');
+        }
+
+        // 시군구 선택
+        $("#sido").change(function () {
+            var sido = $(this).val();
+            $("#sigungu").empty().append('<option value="">선택</option>');
+            if (sido) {
+                $.getJSON("/get_sigungu?sido=" + sido, function (data) {
+                    $.each(data, function (i, item) {
+                        $("#sigungu").append('<option value="' + item.code + '">' + item.name + '</option>');
+                    });
+                });
+            }
+        });
+
+        // 지도 초기화
+        function clearMap() {
+            Object.values(markers).forEach(m => m.setMap(null));
+            markers = {};
+            bounds = new kakao.maps.LatLngBounds();
+            $("#searchResults, #avgPrices, #totalCount").empty();
+        }
+
+        // 검색 결과 렌더
+        function renderResults(results) {
+            $("#searchResults").empty();
+            results.forEach((r, idx) => {
+                var html = `
+            <div class="result-item" data-uid="${r.UNI_ID}">
+                <div class="name">${r.OS_NM}</div>
+                <div class="address">${r.ADDR || ''}</div>
+                <div class="prices">
+                    <span class="price"><span class="label">휘발유:</span> <span class="value">${r.B027 || '-'}원</span></span>
+                    <span class="price diesel"><span class="label">경유:</span> <span class="value">${r.D047 || '-'}원</span></span>
+                </div>
+            </div>
+        `;
+                $("#searchResults").append(html);
+            });
+        }
+
+        // 정렬 기능
+        $("#sortSelect").change(function () {
+            var sortType = $(this).val();
+            if (sortType === 'none' || currentResults.length === 0) return;
+
+            var sorted = [...currentResults];
+            sorted.sort(function (a, b) {
+                var valA, valB;
+                if (sortType === 'b027_asc') {
+                    valA = parseInt(a.B027) || 999999;
+                    valB = parseInt(b.B027) || 999999;
+                    return valA - valB;
+                } else if (sortType === 'b027_desc') {
+                    valA = parseInt(a.B027) || 0;
+                    valB = parseInt(b.B027) || 0;
+                    return valB - valA;
+                } else if (sortType === 'd047_asc') {
+                    valA = parseInt(a.D047) || 999999;
+                    valB = parseInt(b.D047) || 999999;
+                    return valA - valB;
+                } else if (sortType === 'd047_desc') {
+                    valA = parseInt(a.D047) || 0;
+                    valB = parseInt(b.D047) || 0;
+                    return valB - valA;
+                }
+                return 0;
+            });
+
+            currentResults = sorted;
+            renderResults(currentResults);
+        });
+
+        // 툴팁
+        function createTooltip(marker, b027, d047) {
+            var content = `<div style="padding:8px 14px;background:rgba(255,255,255,0.98);
+        border:1px solid #eee;border-radius:8px;font-size:13px;color:#333;
+        box-shadow:0 4px 12px rgba(0,0,0,0.15);white-space: nowrap;">
+        <span style="margin-right:12px;">휘발유: <b style="color:#e74c3c">${b027 || '-'}원</b></span>
+        <span>경유: <b style="color:#3498db">${d047 || '-'}원</b></span></div>`;
+            return new kakao.maps.CustomOverlay({ content: content, map: null, position: marker.getPosition(), yAnchor: 1.3 });
+        }
+
+        // 메인 검색
+        $("#searchForm").submit(async function (e) {
+            e.preventDefault();
+            clearMap();
+            var postData = $(this).serialize();
+
+            $.post("/search", postData, async function (resp) {
+                var results = resp.results;
+                currentResults = results;
+                $("#totalCount").text("총 검색결과: " + results.length + "개");
+
+                var sumB027 = 0, sumD047 = 0, countB027 = 0, countD047 = 0;
+                var geocodePromises = [];
+
+                results.forEach(function (data) {
+                    if (data.B027) { sumB027 += parseInt(data.B027); countB027++; }
+                    if (data.D047) { sumD047 += parseInt(data.D047); countD047++; }
+
+                    var p = new Promise(function (resolve) {
+                        geocoder.addressSearch(data.ADDR, function (res, status) {
+                            if (status === kakao.maps.services.Status.OK) {
+                                var pos = new kakao.maps.LatLng(res[0].y, res[0].x);
+                                var imageSrc = "/static/img/" + data.POLL_DIV_CD + ".png";
+                                var marker = new kakao.maps.Marker({
+                                    position: pos,
+                                    image: new kakao.maps.MarkerImage(imageSrc, new kakao.maps.Size(32, 32))
+                                });
+                                marker.setMap(map);
+                                markers[data.UNI_ID] = marker;
+                                bounds.extend(pos);
+
+                                var tooltip = createTooltip(marker, data.B027, data.D047);
+                                kakao.maps.event.addListener(marker, 'mouseover', () => tooltip.setMap(map));
+                                kakao.maps.event.addListener(marker, 'mouseout', () => tooltip.setMap(null));
+
+                                kakao.maps.event.addListener(marker, 'click', function () {
+                                    $.get("/get_detail?uni_id=" + data.UNI_ID, function (detail) {
+                                        // 패널 내용 설정
+                                        $("#panelTitle").text(detail.OS_NM);
+                                        $("#panelAddress").text(detail.NEW_ADR || detail.VAN_ADR);
+
+                                        // 주유소 정보
+                                        var infoHtml = `
+                                    <div class="info-item">
+                                        <span class="icon">📞</span>
+                                        <span class="label">전화:</span>
+                                        <span class="value">${detail.TEL || '-'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="icon">🚗</span>
+                                        <span class="label">세차장:</span>
+                                        <span class="value ${detail.CAR_WASH_YN === 'Y' ? 'yes' : 'no'}">${detail.CAR_WASH_YN || 'N'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="icon">🏪</span>
+                                        <span class="label">편의점:</span>
+                                        <span class="value ${detail.CVS_YN === 'Y' ? 'yes' : 'no'}">${detail.CVS_YN || 'N'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="icon">🔧</span>
+                                        <span class="label">경정비:</span>
+                                        <span class="value ${detail.MAINT_YN === 'Y' ? 'yes' : 'no'}">${detail.MAINT_YN || 'N'}</span>
+                                    </div>
+                                `;
+                                        $("#stationInfo").html(infoHtml);
+
+                                        // 가격 테이블
+                                        var priceHtml = detail.OIL_PRICE.map(p =>
+                                            `<tr>
+                                        <td class="fuel-type">${p.PRODCD == 'B027' ? '휘발유' : '경유'}</td>
+                                        <td class="price-value">${p.PRICE}원</td>
+                                    </tr>`
+                                        ).join('');
+                                        $("#priceTableBody").html(priceHtml);
+
+                                        openPanel();
+                                        renderPredictChart(data.UNI_ID);
+                                    });
+                                });
+                            }
+                            resolve();
+                        });
+                    });
+                    geocodePromises.push(p);
+                });
+
+                await Promise.all(geocodePromises);
+                var avgB027 = countB027 ? Math.floor(sumB027 / countB027) : '-';
+                var avgD047 = countD047 ? Math.floor(sumD047 / countD047) : '-';
+
+                $("#avgPrices").show();
+                $("#sortFilter").show();
+                $("#sortSelect").val('none');
+                $("#avgGasoline").text(avgB027);
+                $("#avgDiesel").text(avgD047);
+
+                if (results.length > 0) map.setBounds(bounds);
+                renderResults(results);
+                renderBrandPieChart(results);
+            });
+        });
+
+        // 검색결과 아이템 클릭 시 마커 클릭 트리거 + 지도 이동
+        $(document).on('click', '.result-item', function () {
+            var uid = $(this).data('uid');
+            $('.result-item').removeClass('active');
+            $(this).addClass('active');
+            if (markers[uid]) {
+                // 지도 확대 및 해당 위치로 이동
+                map.setLevel(3);
+                map.setCenter(markers[uid].getPosition());
+                // 마커 클릭 이벤트 트리거
+                kakao.maps.event.trigger(markers[uid], 'click');
+            }
+        });
+
+        // 라인차트: 예측 포함
+        function renderPredictChart(uni_id) {
+            $.get("/get_price_and_pred?uni_id=" + uni_id, function (resp) {
+                const labels = resp.dates;
+                const actual = resp.actual_prices;
+                const predicted = resp.predicted_prices;
+
+                todayPriceGlobal = actual[actual.length - 1];
+                tomorrowPredGlobal = predicted[0];
+
+                const predictedAligned = Array(actual.length - 1).fill(null).concat([todayPriceGlobal], predicted);
+
+                const canvas = document.getElementById('predictChart');
+
+                if (window.predictChartInstance) window.predictChartInstance.destroy();
+                window.predictChartInstance = new Chart(canvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: '과거 가격',
+                                data: actual,
+                                borderColor: '#3498db',
+                                backgroundColor: 'rgba(52,152,219,0.1)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: '예측 가격',
+                                data: predictedAligned,
+                                borderColor: '#e74c3c',
+                                backgroundColor: 'rgba(231,76,60,0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                grid: { display: false }
+                            },
+                            y: {
+                                display: true,
+                                grid: { color: '#f0f0f0' }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // 계산 버튼 이벤트
+        $(document).on("click", "#calcFuelBtn", function () {
+            var amount = parseFloat($("#amountInput").val()) || 0;
+            if (todayPriceGlobal && tomorrowPredGlobal) {
+                var todayL = amount / todayPriceGlobal;
+                var tomorrowL = amount / tomorrowPredGlobal;
+                $("#fuelResultToday").text(todayL.toFixed(2) + " L");
+                $("#fuelResultTomorrow").text(tomorrowL.toFixed(2) + " L");
+            }
+        });
+
+        // 브랜드 파이차트
+        function renderBrandPieChart(results) {
+            const brandNames = {
+                'SKE': 'SK에너지', 'GSC': 'GS칼텍스', 'HDO': '현대오일', 'SOL': 'S-OIL',
+                'RTE': '자영알뜰', 'RTX': '고속도로알뜰', 'NHO': '농협알뜰', 'ETC': '기타'
+            };
+            const counts = {};
+            results.forEach(r => {
+                if (r.POLL_DIV_CD) counts[r.POLL_DIV_CD] = (counts[r.POLL_DIV_CD] || 0) + 1;
+            });
+            const labels = Object.keys(counts).map(k => brandNames[k] || k);
+            const data = Object.values(counts);
+
+            const canvas = document.getElementById('brandPieChart');
+
+            if (window.brandPieChartInstance) window.brandPieChartInstance.destroy();
+
+            window.brandPieChartInstance = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#e74c3c', '#3498db', '#f39c12', '#27ae60',
+                            '#9b59b6', '#1abc9c', '#e67e22', '#95a5a6'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 12,
+                                usePointStyle: true,
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+
+</html>
